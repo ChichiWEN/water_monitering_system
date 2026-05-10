@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧水利数据看板 | 水位监测系统</title>
+    < 引入 ECharts >
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', '微软雅黑', 'PingFang SC', Roboto, sans-serif;
+            background: linear-gradient(135deg, #e8f4f0 0%, #d4e8e2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* 头部 */
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 20px 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .title-section h1 {
+            color: #1a5d4a;
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title-section p {
+            color: #5a7c6f;
+            font-size: 14px;
+        }
+
+        .stats-badge {
+            background: #e8f4f0;
+            padding: 12px 20px;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        .stats-badge .number {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1a5d4a;
+        }
+
+        /* 图表卡片 */
+        .chart-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a5d4a;
+            margin-bottom: 15px;
+            padding-left: 15px;
+            border-left: 4px solid #2c9b7c;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 400px;
+        }
+
+        /* 筛选栏 */
+        .filter-bar {
+            background: white;
+            border-radius: 16px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2c6e5c;
+        }
+
+        .filter-group select, .filter-group input {
+            padding: 8px 14px;
+            border: 1px solid #c8dfd6;
+            border-radius: 10px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #2c7a64;
+            color: white;
+        }
+
+        .btn:hover {
+            background: #1e5f4c;
+        }
+
+        /* 表格容器 */
+        .table-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .table-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a5d4a;
+            margin-bottom: 15px;
+            padding-left: 15px;
+            border-left: 4px solid #2c9b7c;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .water-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .water-table th {
+            background: #1a5d4a;
+            color: white;
+            padding: 12px 10px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .water-table td {
+            padding: 10px 8px;
+            text-align: center;
+            border-bottom: 1px solid #e2eee9;
+        }
+
+        .water-table tbody tr {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .water-table tbody tr:hover {
+            background-color: #e6f4ef;
+        }
+
+        .water-table tbody tr.selected {
+            background-color: #c5e6db;
+        }
+
+        .warning-cell {
+            background-color: #ffe0d9 !important;
+            color: #d9534f;
+            font-weight: bold;
+        }
+
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            padding: 15px;
+            color: #6b9080;
+            font-size: 12px;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .header { flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <头部>
+        <div class="header">
+            <div class="title-section">
+                <h1>
+                    <span></span>
+                    清溪河流域智慧水文监测系统
+                </h1>
+                <p>实时水位监测 | 数据时段：2025年3月 | 单位：米(m)</p>
+            </div>
+            <div class="stats-badge">
+                <div class="number" id="totalCount">0</div>
+                <div class="label">监测记录数</div>
+            </div>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="chart-card">
+            <div class="chart-title">水位变化趋势图</div>
+            <div id="waterChart" class="chart-container"></div>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>选择测站</label>
+                <select id="stationSelect">
+                    <option value="all">全部测站</option>
+                    <option value="刘家坝水文站">刘家坝水文站</option>
+                    <option value="清溪桥下游站">清溪桥下游站</option>
+                    <option value="石门坎水文站">石门坎水文站</option>
+                    <option value="月亮湾水位站">月亮湾水位站</option>
+                    <option value="东风渠进水闸">东风渠进水闸</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>开始日期</label>
+                <input type="date" id="startDate" value="2025-03-01">
+            </div>
+            <div class="filter-group">
+                <label>结束日期</label>
+                <input type="date" id="endDate" value="2025-03-31">
+            </div>
+            <button class="btn" onclick="applyFilter()">查询</button>
+        </div>
+
+        <!-- 表格区域 -->
+        <div class="table-card">
+            <div class="table-title">水位监测数据明细</div>
+            <div class="table-wrapper">
+                <table class="water-table" id="waterTable">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>测站名称</th>
+                            <th>水位(m)</th>
+                            <th>警戒水位(m)</th>
+                            <th>状态</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr><td colspan="6" style="text-align:center">加载数据中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>警戒水位：刘家坝3.20m | 清溪桥3.15m | 石门坎3.30m | 月亮湾2.80m | 东风渠2.50m</p>
+            <p>提示：点击表格行可高亮并同步图表数据点</p>
+        </div>
+    </div>
+
+    <script>
+        //  1. 测站数据定义 
+        const stations = [
+            { name: "刘家坝水文站", warningLevel: 3.20, baseLevel: 2.95, color: "#2c7a64" },
+            { name: "清溪桥下游站", warningLevel: 3.15, baseLevel: 2.85, color: "#e67e22" },
+            { name: "石门坎水文站", warningLevel: 3.30, baseLevel: 2.75, color: "#3498db" },
+            { name: "月亮湾水位站", warningLevel: 2.80, baseLevel: 2.40, color: "#9b59b6" },
+            { name: "东风渠进水闸", warningLevel: 2.50, baseLevel: 2.20, color: "#1abc9c" }
+        ];
+
+        //  2. 生成模拟水位数据 
+        function generateWaterLevelData() {
+            const data = [];
+            const startDate = new Date(2025, 2, 1);
+            const endDate = new Date(2025, 2, 31);
+            
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().slice(0, 10);
+                const dayOfMonth = d.getDate();
+                const trend = (dayOfMonth / 31) * 0.35;
+                
+                for (const station of stations) {
+                    const seasonal = 0.12 * Math.sin(dayOfMonth * 0.5);
+                    const randomNoise = (Math.random() - 0.5) * 0.08;
+                    let level = station.baseLevel + trend + seasonal + randomNoise;
+                    level = Math.round(level * 100) / 100;
+                    
+                    let status = "";
+                    let remark = "";
+                    if (level > station.warningLevel) {
+                        status = "超警戒";
+                        remark = `超警戒 ${(level - station.warningLevel).toFixed(2)}m`;
+                    } else if (level > station.warningLevel - 0.15) {
+                        status = "接近警戒";
+                        remark = "需关注";
+                    } else if (level < station.baseLevel - 0.25) {
+                        status = "低水位";
+                        remark = "水量偏少";
+                    } else {
+                        status = "正常";
+                        remark = "-";
+                    }
+                    
+                    data.push({
+                        id: `${dateStr}_${station.name}`,
+                        date: dateStr,
+                        station: station.name,
+                        level: level,
+                        warningLevel: station.warningLevel,
+                        baseLevel: station.baseLevel,
+                        status: status,
+                        remark: remark
+                    });
+                }
+            }
+            return data;
+        }
+
+        //  3. 全局变量 
+        let allData = generateWaterLevelData();  // 原始数据 155条
+        let currentData = [];                     // 当前筛选后的数据
+        let chartInstance = null;                 // ECharts 实例
+        let currentStation = "all";               // 当前选中的测站
+        let selectedRowId = null;                 // 当前选中的行ID
+
+        //  4. 渲染表格 
+        function renderTable(data) {
+            const tbody = document.getElementById("tableBody");
+            tbody.innerHTML = "";
+            
+            document.getElementById("totalCount").textContent = data.length;
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px;">暂无数据</td></tr>';
+                return;
+            }
+            
+            for (const row of data) {
+                const tr = document.createElement("tr");
+                tr.dataset.id = row.id;
+                tr.dataset.date = row.date;
+                tr.dataset.level = row.level;
+                
+                // 高亮样式：超警戒
+                const isWarning = row.level > row.warningLevel;
+                
+                // 日期
+                const tdDate = document.createElement("td");
+                tdDate.textContent = row.date;
+                tr.appendChild(tdDate);
+                
+                // 测站
+                const tdStation = document.createElement("td");
+                tdStation.textContent = row.station;
+                tr.appendChild(tdStation);
+                
+                // 水位
+                const tdLevel = document.createElement("td");
+                tdLevel.textContent = row.level.toFixed(2);
+                if (isWarning) tdLevel.className = "warning-cell";
+                tr.appendChild(tdLevel);
+                
+                // 警戒水位
+                const tdWarning = document.createElement("td");
+                tdWarning.textContent = row.warningLevel.toFixed(2);
+                tr.appendChild(tdWarning);
+                
+                // 状态
+                const tdStatus = document.createElement("td");
+                tdStatus.textContent = row.status;
+                if (isWarning) tdStatus.className = "warning-cell";
+                tr.appendChild(tdStatus);
+                
+                // 备注
+                const tdRemark = document.createElement("td");
+                tdRemark.textContent = row.remark;
+                tr.appendChild(tdRemark);
+                
+                // 点击行时触发：高亮该行，并更新图表选中点
+                tr.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll("#tableBody tr").forEach(r => r.classList.remove("selected"));
+                    tr.classList.add("selected");
+                    selectedRowId = row.id;
+                    highlightChartPoint(row.date, row.station, row.level);
+                });
+                
+                tbody.appendChild(tr);
+            }
+        }
+
+        //  5. 绘制/更新 ECharts 图表
+        function updateChart(data, stationName) {
+            if (!chartInstance) {
+                chartInstance = echarts.init(document.getElementById("waterChart"));
+            }
+            
+            // 按日期分组，找出所有唯一日期
+            const dateSet = new Set();
+            for (const item of data) {
+                dateSet.add(item.date);
+            }
+            const dates = Array.from(dateSet).sort();
+            
+            if (stationName === "all") {
+                // 全部测站：显示多条线
+                const stationNames = [...new Set(data.map(d => d.station))];
+                const series = [];
+                const colors = ["#2c7a64", "#e67e22", "#3498db", "#9b59b6", "#1abc9c"];
+                
+                stationNames.forEach((sName, idx) => {
+                    const stationData = data.filter(d => d.station === sName);
+                    const dataMap = new Map();
+                    for (const item of stationData) {
+                        dataMap.set(item.date, item.level);
+                    }
+                    const levels = dates.map(date => dataMap.get(date) || null);
+                    
+                    series.push({
+                        name: sName,
+                        type: "line",
+                        data: levels,
+                        smooth: true,
+                        symbol: "circle",
+                        symbolSize: 6,
+                        lineStyle: { width: 2, color: colors[idx % colors.length] },
+                        itemStyle: { color: colors[idx % colors.length] }
+                    });
+                });
+                
+                chartInstance.setOption({
+                    title: { show: false },
+                    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+                    legend: { data: stationNames, top: 0, left: "center" },
+                    grid: { left: "5%", right: "5%", top: "12%", bottom: "5%", containLabel: true },
+                    xAxis: { type: "category", data: dates, name: "日期", axisLabel: { rotate: 45 } },
+                    yAxis: { type: "value", name: "水位 (m)", min: 2.0, max: 3.6 },
+                    series: series
+                });
+            } else {
+                // 单个测站
+                const stationData = data.filter(d => d.station === stationName);
+                const dataMap = new Map();
+                for (const item of stationData) {
+                    dataMap.set(item.date, item.level);
+                }
+                const levels = dates.map(date => dataMap.get(date) || null);
+                
+                // 获取警戒水位
+                const stationInfo = stations.find(s => s.name === stationName);
+                const warningLevel = stationInfo ? stationInfo.warningLevel : 3.2;
+                
+                chartInstance.setOption({
+                    title: { show: false },
+                    tooltip: { trigger: "axis" },
+                    legend: { data: [stationName, "警戒水位"], top: 0 },
+                    grid: { left: "5%", right: "5%", top: "12%", bottom: "5%", containLabel: true },
+                    xAxis: { type: "category", data: dates, name: "日期", axisLabel: { rotate: 45 } },
+                    yAxis: { type: "value", name: "水位 (m)", min: 2.0, max: 3.6 },
+                    series: [
+                        {
+                            name: stationName,
+                            type: "line",
+                            data: levels,
+                            smooth: true,
+                            symbol: "circle",
+                            symbolSize: 8,
+                            lineStyle: { width: 2.5, color: "#2c7a64" },
+                            areaStyle: { opacity: 0.1, color: "#2c7a64" }
+                        },
+                        {
+                            name: "警戒水位",
+                            type: "line",
+                            data: Array(dates.length).fill(warningLevel),
+                            lineStyle: { width: 2, color: "red", type: "dashed" },
+                            symbol: "none",
+                            tooltip: { valueFormatter: (value) => value + "m (警戒线)" }
+                        }
+                    ]
+                });
+            }
+        }
+
+        //  6. 高亮图表中的数据点 
+        function highlightChartPoint(date, stationName, level) {
+            if (!chartInstance) return;
+            
+            const option = chartInstance.getOption();
+            const series = option.series;
+            
+            // 找到对应的系列
+            for (let i = 0; i < series.length; i++) {
+                const s = series[i];
+                if (s.name === stationName || (currentStation === "all" && s.name === stationName)) {
+                    const xAxisData = option.xAxis[0].data;
+                    const dataIndex = xAxisData.indexOf(date);
+                    if (dataIndex !== -1) {
+                        chartInstance.dispatchAction({
+                            type: "showTip",
+                            seriesIndex: i,
+                            dataIndex: dataIndex
+                        });
+                    }
+                    break;
+                }
+            }
+        }
+        //  7. 筛选数据 ====================
+        function applyFilter() {
+            const stationFilter = document.getElementById("stationSelect").value;
+            const startDate = document.getElementById("startDate").value;
+            const endDate = document.getElementById("endDate").value;
+            
+            currentStation = stationFilter;
+            
+            let filtered = [...allData];
+            
+            // 测站筛选
+            if (stationFilter !== "all") {
+                filtered = filtered.filter(item => item.station === stationFilter);
+            }
+            
+            // 日期筛选
+            if (startDate) {
+                filtered = filtered.filter(item => item.date >= startDate);
+            }
+            if (endDate) {
+                filtered = filtered.filter(item => item.date <= endDate);
+            }
+            
+            currentData = filtered;
+            
+            // 渲染表格
+            renderTable(currentData);
+            
+            // 更新图表
+            updateChart(currentData, stationFilter);
+            
+            // 清除行高亮
+            selectedRowId = null;
+        }
+
+        //  8. 初始化页面 
+        function init() {
+            currentData = [...allData];
+            currentStation = "all";
+            renderTable(currentData);
+            updateChart(currentData, "all");
+            
+            // 绑定回车事件
+            document.getElementById("startDate").addEventListener("change", applyFilter);
+            document.getElementById("endDate").addEventListener("change", applyFilter);
+        }
+        
+        // 启动
+        init();
+        
+        // 窗口大小改变时重绘图表
+        window.addEventListener("resize", () => {
+            if (chartInstance) chartInstance.resize();
+        });
+    </script>
+</body>
+</html>
